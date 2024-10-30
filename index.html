@@ -274,16 +274,15 @@
         }
 
         function buildCalendlyUrl() {
-            const params = new URLSearchParams();
-
-            if (config.hideDetails) {
-                params.append('hide_event_type_details', '1');
-            }
-            if (config.hideCookieBanner) {
-                params.append('hide_gdpr_banner', '1');
-            }
-
-            return `${config.url}?${params.toString()}`;
+            // Parse existing URL and parameters
+            const url = new URL(config.url);
+            const existingParams = url.searchParams;
+        
+            // Add our additional parameters
+            if (config.hideDetails) existingParams.append('hide_event_type_details', '1');
+            if (config.hideCookieBanner) existingParams.append('hide_gdpr_banner', '1');
+        
+            return url.toString();
         }
 
         function showInlineWidget() {
@@ -349,81 +348,94 @@
         });
 
         function generateIntegrationCode() {
-            // Build URL parameters
+            // Use a dummy URL for code generation
+            const demoUrl = 'https://calendly.com/your-name/30min';
+            
+            // Parse existing URL to get any default parameters
+            const currentUrl = new URL(config.url);
             const params = new URLSearchParams();
+            
+            // Add default parameters from config URL
+            currentUrl.searchParams.forEach((value, key) => {
+                if (key !== 'hide_event_type_details' && key !== 'hide_gdpr_banner') {
+                    params.append(key, value);
+                }
+            });
+        
+            // Add our additional parameters
             if (config.hideDetails) params.append('hide_event_type_details', '1');
             if (config.hideCookieBanner) params.append('hide_gdpr_banner', '1');
-
+        
+            const urlWithParams = `${demoUrl}${params.toString() ? '?' + params.toString() : ''}`;
+        
             // Build prefill object
             const prefillData = getPrefillData();
             const prefillJSON = Object.keys(prefillData).length > 0 ?
                 JSON.stringify(prefillData, null, 4) : '{}';
-
-            const urlWithParams = `${config.url}${params.toString() ? '?' + params.toString() : ''}`;
-
+        
             // Check if we're generating code for popup or inline
             const isPopup = document.getElementById('popupBtn').classList.contains('active');
-
+        
             let code = '';
-
+        
             if (isPopup) {
                 code =
-                    `<!-- Calendly Widget Begin -->
-<link href="https://assets.calendly.com/assets/external/widget.css" rel="stylesheet">
-<script src="https://assets.calendly.com/assets/external/widget.js" defer><\/script>
-
-<button onclick="openCalendlyPopup()" style="cursor:pointer;background:#0069ff;color:white;border:none;padding:10px 20px;border-radius:4px;">Schedule Meeting</button>
-
-<script>
-function openCalendlyPopup() {
-    Calendly.initPopupWidget({
-        url: '${urlWithParams}',
-        prefill: ${prefillJSON},
-        ${config.enableResize ? 'resize: true,' : ''}
-        utm: {}
-    });
-    return false;
-}
-
-window.addEventListener('message', function(e) {
-    if (e.origin === "https://calendly.com" && e.data.event) {
-        console.log('Calendly Event:', e.data.event);
-        if (e.data.event === 'calendly.event_scheduled') {
-            console.log('Meeting scheduled!');
+        `<!-- Calendly Widget Begin -->
+        <link href="https://assets.calendly.com/assets/external/widget.css" rel="stylesheet">
+        <script src="https://assets.calendly.com/assets/external/widget.js" defer><\/script>
+        
+        <button onclick="openCalendlyPopup()" style="cursor:pointer;background:#0069ff;color:white;border:none;padding:10px 20px;border-radius:4px;">Schedule Meeting</button>
+        
+        <script>
+        function openCalendlyPopup() {
+            Calendly.initPopupWidget({
+                url: '${urlWithParams}',
+                prefill: ${prefillJSON},
+                ${config.enableResize ? 'resize: true,' : ''}
+                utm: {}
+            });
+            return false;
         }
-    }
-});
-<\/script>
-<!-- Calendly Widget End -->`;
+        
+        window.addEventListener('message', function(e) {
+            if (e.origin === "https://calendly.com" && e.data.event) {
+                console.log('Calendly Event:', e.data.event);
+                if (e.data.event === 'calendly.event_scheduled') {
+                    console.log('Meeting scheduled!');
+                }
+            }
+        });
+        <\/script>
+        <!-- Calendly Widget End -->`;
             } else {
                 code =
-                    `<!-- Calendly Inline Widget Begin -->
-<div class="calendly-inline-widget" style="min-width:320px;height:700px;" id="calendly-embed"></div>
-
-<script src="https://assets.calendly.com/assets/external/widget.js" defer><\/script>
-<script>
-window.addEventListener('load', function() {
-    Calendly.initInlineWidget({
-        url: '${urlWithParams}',
-        parentElement: document.getElementById('calendly-embed'),
-        prefill: ${prefillJSON},
-        ${config.enableResize ? 'resize: true,' : ''}
-        utm: {}
-    });
-
-    window.addEventListener('message', function(e) {
-        if (e.origin === "https://calendly.com" && e.data.event) {
-            console.log('Calendly Event:', e.data.event);
-            if (e.data.event === 'calendly.event_scheduled') {
-                console.log('Meeting scheduled!');
+        `<!-- Calendly Inline Widget Begin -->
+        <div class="calendly-inline-widget" style="min-width:320px;height:700px;" id="calendly-embed"></div>
+        
+        <script src="https://assets.calendly.com/assets/external/widget.js" defer><\/script>
+        <script>
+        window.addEventListener('load', function() {
+            Calendly.initInlineWidget({
+                url: '${urlWithParams}',
+                parentElement: document.getElementById('calendly-embed'),
+                prefill: ${prefillJSON},
+                ${config.enableResize ? 'resize: true,' : ''}
+                utm: {}
+            });
+        
+            window.addEventListener('message', function(e) {
+                if (e.origin === "https://calendly.com" && e.data.event) {
+                    console.log('Calendly Event:', e.data.event);
+                    if (e.data.event === 'calendly.event_scheduled') {
+                        console.log('Meeting scheduled!');
+                    }
+                }
+            });
+        });
+        <\/script>
+        <!-- Calendly Inline Widget End -->`;
             }
-        }
-    });
-});
-<\/script>
-<!-- Calendly Inline Widget End -->`;
-            }
-
+        
             return code;
         }
 
